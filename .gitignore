@@ -1,0 +1,24 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.ipynb_checkpoints/
+
+# IDEs and editors
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.swp
+
+# Data files (CSV, HTML output)
+*.csv
+*.html
+
+# Reports (if they should be ignored, but keep markdown)
+# we can keep *.md for documentation/reports
+
+# Logs
+*.log
