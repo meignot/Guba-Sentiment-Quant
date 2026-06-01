@@ -222,12 +222,40 @@ print(f"  这 {len(recent_10_dates)} 天内共出现 {len(unique_top_codes)} 只
 
 industry_map = {}
 def fetch_industry(code):
+    """通过东方财富 push2 API 获取个股所属行业（申万行业分类，比证监会分类更细）"""
     fmt_code = str(code).zfill(6)
+    # 构造东方财富 secid: 沪市=1.代码, 深市/创业板/北交所=0.代码
+    if fmt_code.startswith('6') or fmt_code.startswith('5'):
+        secid = f"1.{fmt_code}"
+    else:
+        secid = f"0.{fmt_code}"
+    try:
+        url = "https://push2.eastmoney.com/api/qt/stock/get"
+        params = {
+            'secid': secid,
+            'fields': 'f127',
+            'ut': 'fa5fd1943c7b386f172d6893dbfba10b'
+        }
+        r = requests.get(url, params=params, timeout=10,
+                        headers={'User-Agent': 'Mozilla/5.0', 'Referer': 'https://quote.eastmoney.com/'})
+        data = r.json()
+        if data and 'data' in data and data['data']:
+            ind = data['data'].get('f127', '')
+            if ind:
+                # 清理行业名称后缀（如"白酒Ⅱ" -> "白酒"）
+                ind = re.sub(r'[ⅠⅡⅢ]+$', '', ind).strip()
+                return fmt_code, ind
+        # 回退到巨潮资讯
+        return _fetch_industry_cninfo(fmt_code)
+    except Exception:
+        return _fetch_industry_cninfo(fmt_code)
+
+def _fetch_industry_cninfo(fmt_code):
+    """回退方案：通过巨潮资讯获取行业（证监会分类，粒度较粗）"""
     try:
         df_profile = ak.stock_profile_cninfo(symbol=fmt_code)
         if df_profile is not None and not df_profile.empty and '所属行业' in df_profile.columns:
             ind = df_profile['所属行业'].values[0]
-            # 清理行业名称，使其更精简（例如“计算机、通信和其他电子设备制造业” -> “电子设备制造”）
             if ind == "计算机、通信和其他电子设备制造业":
                 ind = "电子设备制造"
             elif ind.endswith("制造业"):
