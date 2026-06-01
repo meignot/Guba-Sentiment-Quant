@@ -446,8 +446,29 @@ def main():
         time.sleep(attempt * 3)
     
     if df_hot is None or df_hot.empty:
-        print("[错误] 多次重试后仍未能获取人气榜数据，程序退出。")
-        return
+        print("[!] 接口获取失败，正在尝试从本地 100 目录中加载今日成交额 Top 10 股票作为人气榜替代方案...")
+        try:
+            import glob
+            csv_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "100")
+            csv_files = sorted(glob.glob(os.path.join(csv_dir, "top100_*.csv")))
+            if csv_files:
+                latest_csv = csv_files[-1]
+                print(f"  使用本地最新数据源: {latest_csv}")
+                df_local = pd.read_csv(latest_csv, encoding='utf-8-sig', dtype={'代码': str})
+                df_local['代码'] = df_local['代码'].astype(str).str.extract(r'(\d+)', expand=False).fillna('').str.zfill(6)
+                df_hot = pd.DataFrame()
+                df_hot['当前排名'] = range(1, len(df_local.head(10)) + 1)
+                df_hot['代码'] = df_local.head(10)['代码']
+                df_hot['股票名称'] = df_local.head(10)['名称']
+                df_hot['最新价'] = df_local.head(10)['收盘']
+                df_hot['涨跌幅'] = df_local.head(10)['涨跌幅']
+                df_hot['涨跌额'] = 0.0
+            else:
+                print("[错误] 本地 100 目录中没有找到数据文件，程序退出。")
+                return
+        except Exception as ex:
+            print(f"[错误] 从本地加载人气替代榜单失败: {ex}")
+            return
         
     print(f"  成功获取到 {len(df_hot)} 只人气股票。")
     
